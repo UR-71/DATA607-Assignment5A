@@ -1,0 +1,39 @@
+---
+title: '5A Approach: Tidying and Transforming Data'
+author: "Ummay Rukiya"
+date: "2026-09-30"
+output: html_document
+---
+## Overview
+
+For this assignment, I will recreate the provided airline-arrival table as a CSV file and use R to tidy and analyze the data. The table contains the number of on-time and delayed flights for Alaska Airlines and AMWEST across Los Angeles, Phoenix, San Diego, San Francisco, and Seattle.
+
+## Data Structure
+
+I will recreate the data in the same wide format shown in the original table. The CSV file will have separate columns for the airline, arrival status, and each of the five cities. Since the airline name only appears beside the first row for each airline in the original table, I will keep the corresponding cells blank in the delayed rows. This will allow me to demonstrate how missing values can be populated in R.
+
+After creating the CSV file, I will upload it to my public GitHub repository. My R Markdown document will load the data directly from the raw GitHub URL instead of using a file stored only on my computer.
+
+## Planned Data Cleaning and Transformation
+
+First, I will inspect the imported data and use `fill()` to populate the missing airline names. I will then use `pivot_longer()` to transform the five city columns into two columns: one containing the city and another containing the number of flights. This will change the dataset from wide format to long format, with each row representing one airline, one arrival status, and one city.
+
+I will also clean the column names and check that the flight counts are stored as numbers. Before beginning the analysis, I will verify that the transformed data contains both airlines, both arrival statuses, and all five cities.
+
+## Planned Analysis
+
+I will calculate the total number of flights and the percentage of delayed flights for each airline. I will compare percentages instead of only comparing counts because the two airlines operated different numbers of flights.
+
+Next, I will calculate the delay percentage for each airline in each of the five cities. I plan to present the overall comparison and the city-by-city comparison using clear tables or charts and explain the patterns shown in the results.
+
+Finally, I will compare the overall results with the city-level results. If one airline appears to perform better overall but worse within individual cities, I will examine how the airlines’ different distributions of flights across the five destinations created that discrepancy.
+
+## Anticipated Challenges
+
+One challenge may be preserving the blank airline cells when recreating the original table and then filling them correctly in R. I will also need to make sure that the wide-to-long transformation keeps every flight count connected to the correct airline, arrival status, and city. Another challenge will be explaining why the overall comparison may produce a different conclusion from the city-by-city comparison.
+
+## Expected Outcome
+
+The final dataset will be in a tidy long format that can be grouped by airline, arrival status, and city. The analysis will show the overall delay percentage for each airline, the delay percentages across all five cities, and an explanation of why the overall and city-level comparisons may not tell the same story.
+
+
