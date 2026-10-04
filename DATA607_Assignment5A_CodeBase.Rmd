@@ -1,0 +1,218 @@
+---
+title: 'Assignment 5A: Tidying and Transforming Data'
+author: "Ummay Rukiya"
+date: "2026-10-03"
+output: html_document
+---
+
+## Overview
+
+This assignment compares the arrival performance of Alaska Airlines and AMWEST across five cities. I recreated the original table as a wide CSV file, including the blank airline cells shown in the source. I will load the data from GitHub, populate the missing airline names, transform the data into a tidy long format, and compare the airlines using delay percentages rather than only flight counts.
+
+## Loading the Data
+
+I loaded the recreated airline-arrival data directly from its public GitHub URL. The dataset is currently in wide format because each city is stored in a separate column. The two missing airline values reproduce the blank cells from the original source table.
+
+```{r load-data}
+library(tidyverse)
+
+data_url <- paste0(
+  "https://raw.githubusercontent.com/UR-71/",
+  "DATA607-Assignment5A/main/airline_arrivals.csv"
+)
+
+airline_wide <- read_csv(
+  data_url,
+  na = "",
+  show_col_types = FALSE
+)
+
+airline_wide
+```
+
+## Populating the Missing Airline Names
+
+The original table displayed each airline name only once, leaving the airline cell blank in the delayed row. After importing the CSV, those blank cells appeared as `NA`. I used `fill()` to copy each airline name downward into its corresponding delayed row.
+
+```{r fill-missing-airlines}
+airline_filled <- airline_wide |>
+  fill(airline, .direction = "down")
+
+airline_filled
+```
+## Transforming the Data from Wide to Long Format
+
+The five cities were originally stored as separate columns. I used `pivot_longer()` to place the city names into one column and their flight counts into another. In the resulting tidy dataset, each row represents one airline, one arrival status, and one city.
+
+```{r transform-wide-to-long}
+airline_long <- airline_filled |>
+  pivot_longer(
+    cols = los_angeles:seattle,
+    names_to = "city",
+    values_to = "flight_count"
+  ) |>
+  mutate(
+    city = recode(
+      city,
+      los_angeles = "Los Angeles",
+      phoenix = "Phoenix",
+      san_diego = "San Diego",
+      san_francisco = "San Francisco",
+      seattle = "Seattle"
+    )
+  )
+
+airline_long
+```
+## Overall Airline Performance
+
+I first compared the airlines across all five cities combined. Because the airlines operated different numbers of flights, I calculated the percentage of delayed flights instead of comparing only the delayed-flight counts.
+
+```{r overall-delay-percentages}
+overall_performance <- airline_long |>
+  group_by(airline) |>
+  summarize(
+    total_flights = sum(flight_count),
+    delayed_flights = sum(
+      flight_count[arrival_status == "delayed"]
+    ),
+    on_time_flights = total_flights - delayed_flights,
+    delay_percentage = round(
+      delayed_flights / total_flights * 100,
+      2
+    ),
+    .groups = "drop"
+  ) |>
+  arrange(delay_percentage)
+
+knitr::kable(
+  overall_performance,
+  caption = "Overall Flight Performance by Airline"
+)
+```
+## Delay Percentages by City
+
+Next, I calculated the delay percentage for each airline within each of the five cities. This comparison controls for destination and shows whether the overall result remains consistent within individual cities.
+
+```{r city-delay-percentages}
+city_performance <- airline_long |>
+  group_by(airline, city) |>
+  summarize(
+    total_flights = sum(flight_count),
+    delayed_flights = sum(
+      flight_count[arrival_status == "delayed"]
+    ),
+    delay_percentage = round(
+      delayed_flights / total_flights * 100,
+      2
+    ),
+    .groups = "drop"
+  ) |>
+  arrange(city, airline)
+
+knitr::kable(
+  city_performance,
+  caption = "Delay Percentages by Airline and City"
+)
+```
+
+Overall, AMWEST had a delay rate of 10.89%, while Alaska had a delay rate of 13.27%. Based only on the combined results, AMWEST appears to have better arrival performance because its delay percentage was approximately 2.38 percentage points lower.
+
+```{r city-delay-chart, fig.width=9, fig.height=5}
+ggplot(
+  city_performance,
+  aes(
+    x = city,
+    y = delay_percentage,
+    fill = airline
+  )
+) +
+  geom_col(
+    position = "dodge",
+    width = 0.75
+  ) +
+  geom_text(
+    aes(label = paste0(delay_percentage, "%")),
+    position = position_dodge(width = 0.75),
+    vjust = -0.4,
+    size = 3.5
+  ) +
+  scale_fill_manual(
+    values = c(
+      "ALASKA" = "#2C7FB8",
+      "AMWEST" = "#F03B20"
+    )
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.12))
+  ) +
+  labs(
+    title = "Airline Delay Percentages by City",
+    x = "City",
+    y = "Delayed Flights (%)",
+    fill = "Airline"
+  ) +
+  theme_minimal()
+```
+
+The city-by-city results tell a different story from the overall comparison. Alaska had the lower delay percentage in all five cities. Its delay rates ranged from 5.15% in Phoenix to 16.86% in San Francisco. AMWEST’s rates ranged from 7.90% in Phoenix to 28.73% in San Francisco. Therefore, when the airlines are compared within the same destinations, Alaska performed better in every city.
+
+## Explaining the Overall and City-Level Discrepancy
+
+To understand why AMWEST appeared better overall even though Alaska performed better in every city, I calculated the percentage of each airline’s flights that came from each destination.
+
+```{r flight-distribution}
+flight_distribution <- airline_long |>
+  group_by(airline, city) |>
+  summarize(
+    total_flights = sum(flight_count),
+    .groups = "drop"
+  ) |>
+  group_by(airline) |>
+  mutate(
+    percentage_of_airline_flights = round(
+      total_flights / sum(total_flights) * 100,
+      2
+    )
+  ) |>
+  ungroup() |>
+  arrange(airline, city)
+
+knitr::kable(
+  flight_distribution,
+  caption = "Distribution of Each Airline's Flights Across Cities"
+)
+```
+
+The overall comparison is misleading because the two airlines did not operate the same proportion of flights in each city. Approximately 72.73% of AMWEST’s flights were in Phoenix, where both airlines experienced their lowest delay rates. In comparison, approximately 56.85% of Alaska’s flights were in Seattle, where delay rates were higher.
+
+As a result, AMWEST’s large number of Phoenix flights lowered its overall delay percentage, while Alaska’s large number of Seattle flights raised its overall percentage. This reversal is an example of Simpson’s paradox: AMWEST appears better when all cities are combined, but Alaska has the lower delay percentage when the airlines are compared within every individual city.
+
+## Conclusion
+
+The combined results initially suggested that AMWEST performed better because its overall delay rate was 10.89%, compared with 13.27% for Alaska. However, the city-level comparison showed that Alaska had a lower delay percentage in all five destinations.
+
+The difference occurred because the airlines operated most of their flights in different cities. AMWEST concentrated most of its flights in Phoenix, where delays were less common, while Alaska operated most of its flights in Seattle, where delays were more common. This analysis shows why percentages should be examined within meaningful groups instead of relying only on one overall percentage.
+
+## Data Source
+
+The original airline-arrival table was adapted from Kaiser Fung’s *Numbersense*, published by McGraw Hill in 2013. The recreated CSV file used in this analysis is publicly available in my GitHub repository:
+
+https://github.com/UR-71/DATA607-Assignment5A/blob/main/airline_arrivals.csv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
